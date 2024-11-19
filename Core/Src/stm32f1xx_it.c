@@ -205,7 +205,7 @@ void SysTick_Handler(void)
   */
 void EXTI0_IRQHandler(void)
 {
-	/* USER CODE BEGIN EXTI0_IRQn 0 */
+  /* USER CODE BEGIN EXTI0_IRQn 0 */
 	//if calibrate =0, return control to main
 		if (__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_0) != RESET)
 		{
@@ -215,18 +215,15 @@ void EXTI0_IRQHandler(void)
 
 		}
 
-
-		//__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_0);
-		//HAL_GPIO_EXTI_Callback(GPIO_PIN_0);
+    //the below line HAL_GPIO_EXTI_IRQHandler(K1_Pin); can be kept
+    //but the above code MUST be kept, otherwise K1 won't work
+		
   /* USER CODE END EXTI0_IRQn 0 */
-  //HAL_GPIO_EXTI_IRQHandler(K1_Pin);
+  HAL_GPIO_EXTI_IRQHandler(K1_Pin);
   /* USER CODE BEGIN EXTI0_IRQn 1 */
 
   /* USER CODE END EXTI0_IRQn 1 */
 }
-
-
-
 
 /**
   * @brief This function handles EXTI line4 interrupt.
@@ -255,7 +252,7 @@ void EXTI4_IRQHandler(void)
 
 
   }
-  ucXPT2046_TouchFlag = 0;
+  //ucXPT2046_TouchFlag = 0; //don't add this or the home page won't work. no effect on canva page anyway.
   LCD_DrawString(68, 100, "  ");
   /* USER CODE END EXTI4_IRQn 1 */
 }

@@ -66,10 +66,62 @@ volatile int drawable=0;
 
 char patterns[4][FRAME_WIDTH][FRAME_HEIGHT]={0}; 
 
-enum Page{HOME, CANVA, MACHINE}; 
+enum Page{HOME, CANVA, MACHINE_DRAW, CALIBRATION}; 
 
+//functions for the HOME page
+void DisplayHome(){
+  LCD_Clear ( 0, 0, 240, 320, WHITE );
 
+  LCD_Clear ( 90,  70,  60, 60, GREEN);
+  LCD_DrawString(90, 70, "MACHINE DRAW");
 
+  LCD_Clear ( 90,  150,  60, 60, RED);
+  LCD_DrawString(90, 150, "CALIBRATE");
+
+  LCD_Clear ( 90,  230,  60, 60, BLUE);
+  LCD_DrawString(90, 230, "CANVA");
+
+}
+
+//functions for pages to return to home
+void check_homeKey(enum Page* page_ptr){
+  GPIO_PinState k2 = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+  if ((k2==GPIO_PIN_SET)){
+	  *page_ptr = HOME;
+    DisplayHome();
+    HAL_Delay(500);
+  }
+}
+
+//functions for the CALIBRATION page
+void DisplayCalibration(){
+  LCD_Clear ( 0, 0, 240, 320, WHITE );
+  //x, y, penUp/ penDown, rotate 
+  //x coords: 30-60, 90, 120-150
+  //y coords: 10
+  LCD_DrawString(50, 10, "-ve");
+  LCD_DrawString(140, 10, "+ve");
+  LCD_DrawString(110, 60, "X"); 
+  LCD_DrawString(110, 110, "Y"); 
+  LCD_DrawString(110, 170, "pen");
+  LCD_DrawString(110, 220, "rotate: pen UP");
+
+//x
+  LCD_Clear ( 40,  40,  30, 30, RED);
+  LCD_Clear ( 150,  40,  30, 30, RED);
+
+  //y
+  LCD_Clear ( 40,  90,  30, 30, BLUE);
+  LCD_Clear ( 150,  90,  30, 30, BLUE);
+
+  //pen
+  LCD_Clear ( 40,  150,  30, 30, GREEN);
+  LCD_Clear ( 150,  150,  30, 30, GREEN);
+
+  //rotate
+  LCD_Clear ( 40,  200,  30, 30, YELLOW);
+
+}
 
 
 //functions for the CANVA page 
@@ -85,7 +137,7 @@ void DrawRedBox(uint16_t startP, uint16_t startC) {
     LCD_DrawLine(startC, endP, endC, endP, RED); // Bottom side
 }
 
-void DrawCanvas(){
+void DisplayCanva(){
 	LCD_Clear ( 0, 0, 240, 320, WHITE );
 				DrawRedBox(0, 10);
 				  DrawRedBox(0, 70);
@@ -126,12 +178,12 @@ void consolidatePattern(){
   savePattern(0, 10, 0); 
   savePattern(0, 70, 1);
   savePattern(0, 130, 2);
-  savePattern(0, 190, 2);
-  DrawCanvas();
+  savePattern(0, 190, 3);
+  DisplayCanva();
   displayPattern(0, 10, 0, RED);
   displayPattern(0, 70, 1, RED);
   displayPattern(0, 130, 2, RED);
-  displayPattern(0, 190, 2, RED);
+  displayPattern(0, 190, 3, RED);
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
@@ -141,13 +193,18 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 			drawable =0; //returns control to main
 		}
 		else if (!drawable){
-			DrawCanvas();
+			DisplayCanva();
 			  drawable =1; //goes to exti 4 irq
 		}
 		//drawable= (drawable+1)%2;
 	}
 }
 
+//funtion for the MACHINE_DRAW page
+
+void DisplayMachineDraw(){
+  LCD_Clear ( 0, 0, 240, 320, WHITE );
+  }
 
 
 
@@ -194,12 +251,12 @@ int main(void)
 	HAL_Delay(2000);
 
 	while( ! XPT2046_Touch_Calibrate () );
-	drawable=1;
+  enum Page current_page = HOME;
+  DisplayHome();
+	drawable=0;
 
-	DrawCanvas();
-	//LCD_Clear ( 90,  230,  60, 60, BLUE	);
-	//(90, 230) to (150,290)
-
+	//DisplayCanva();
+	
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -208,7 +265,54 @@ int main(void)
 	
   while (1)
   {
-	  LCD_DrawString(68, 100, "main");
+    if (current_page==HOME){
+      
+	
+    if ( ucXPT2046_TouchFlag == 1 ){
+      //Check_touchkey();
+       strType_XPT2046_Coordinate strDisplayCoordinate;
+       if ( XPT2046_Get_TouchedPoint ( & strDisplayCoordinate, & strXPT2046_TouchPara ) ){
+        //check which button is pressed
+
+        //canva
+         if (strDisplayCoordinate.x>90 && strDisplayCoordinate.x<150 && strDisplayCoordinate.y>230 && strDisplayCoordinate.y<290){
+        	 LCD_Clear (0,  0,  240, 320, WHITE); //don't know why need this
+        	 current_page = CANVA;
+           DisplayCanva();
+		      drawable =1; //goes to exti 4 irq
+         }
+        //calibrate 
+         else if (strDisplayCoordinate.x>90 && strDisplayCoordinate.x<150 && strDisplayCoordinate.y>150 && strDisplayCoordinate.y<210){
+        	 LCD_Clear (0,  0,  240, 320, WHITE); //don't know why need this
+        	 current_page = CALIBRATION;
+          DisplayCalibration();
+         }
+        //machine draw
+         else if (strDisplayCoordinate.x>90 && strDisplayCoordinate.x<150 && strDisplayCoordinate.y>70 && strDisplayCoordinate.y<130){
+        	 LCD_Clear (0,  0,  240, 320, WHITE); //don't know why need this
+        	 current_page = MACHINE_DRAW;
+          DisplayMachineDraw();
+         }
+       }
+      ucXPT2046_TouchFlag = 0;
+    }
+
+    }
+
+    if (current_page==CANVA){
+      LCD_DrawString(68, 100, "main");
+      check_homeKey(&current_page); 
+
+    }
+
+    if (current_page==CALIBRATION){
+      check_homeKey(&current_page); 
+
+    }
+    if (current_page==MACHINE_DRAW){
+      check_homeKey(&current_page); 
+    }
+	  
 //    if ( ucXPT2046_TouchFlag == 1 )
 //    {
 //			Check_touchkey();
@@ -219,8 +323,8 @@ int main(void)
 //      ucXPT2046_TouchFlag = 0;
 //    }
 
-//	  GPIO_PinState k2 = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
-//	  if ((k2==GPIO_PIN_SET)){
+//	  
+//	  
 //		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1, GPIO_PIN_SET);
 //		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
 //		  HAL_Delay(500);
@@ -326,6 +430,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : K2_Pin */
+  GPIO_InitStruct.Pin = K2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(K2_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : K1_Pin */
   GPIO_InitStruct.Pin = K1_Pin;

@@ -62,9 +62,17 @@ static void MX_FSMC_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-volatile int calibrated=0;
+volatile int drawable=0;
 
 char patterns[4][FRAME_WIDTH][FRAME_HEIGHT]={0}; 
+
+enum Page{HOME, CANVA, MACHINE}; 
+
+
+
+
+
+//functions for the CANVA page 
 
 void DrawRedBox(uint16_t startP, uint16_t startC) {
     uint16_t endP = startP+FRAME_WIDTH*2-1; // X coordinate of the bottom-right corner
@@ -128,15 +136,15 @@ void consolidatePattern(){
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	if (GPIO_Pin==GPIO_PIN_0){
-		if (calibrated){
+		if (drawable){
 			consolidatePattern();
-			calibrated =0; //returns control to main
+			drawable =0; //returns control to main
 		}
-		else if (!calibrated){
+		else if (!drawable){
 			DrawCanvas();
-			  calibrated =1; //goes to exti 4 irq
+			  drawable =1; //goes to exti 4 irq
 		}
-		//calibrated= (calibrated+1)%2;
+		//drawable= (drawable+1)%2;
 	}
 }
 
@@ -186,7 +194,7 @@ int main(void)
 	HAL_Delay(2000);
 
 	while( ! XPT2046_Touch_Calibrate () );
-	calibrated=1;
+	drawable=1;
 
 	DrawCanvas();
 	//LCD_Clear ( 90,  230,  60, 60, BLUE	);

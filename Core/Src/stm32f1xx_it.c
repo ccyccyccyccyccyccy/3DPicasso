@@ -209,7 +209,7 @@ void EXTI0_IRQHandler(void)
 	//if calibrate =0, return control to main
 		if (__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_0) != RESET)
 		{
-			//calibrated= (calibrated+1)%2;
+			//drawable= (drawable+1)%2;
 			HAL_GPIO_EXTI_Callback(GPIO_PIN_0);
 			__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_0);
 
@@ -246,7 +246,7 @@ void EXTI4_IRQHandler(void)
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_4);
   /* USER CODE BEGIN EXTI4_IRQn 1 */
   LCD_DrawString(68, 100, "ing.");
-  if (ucXPT2046_TouchFlag && calibrated){
+  if (ucXPT2046_TouchFlag && drawable){
 	  strType_XPT2046_Coordinate strDisplayCoordinate;
 	    	if ( XPT2046_Get_TouchedPoint ( & strDisplayCoordinate, & strXPT2046_TouchPara ) ){
 
@@ -262,7 +262,7 @@ void EXTI4_IRQHandler(void)
 
 /* USER CODE BEGIN 1 */
 //void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-//	 if (ucXPT2046_TouchFlag && calibrated){
+//	 if (ucXPT2046_TouchFlag && drawable){
 //		  strType_XPT2046_Coordinate strDisplayCoordinate;
 //		    	if ( XPT2046_Get_TouchedPoint ( & strDisplayCoordinate, & strXPT2046_TouchPara ) ){
 //		    		//LCD_DrawDot(strDisplayCoordinate.x, strDisplayCoordinate.y, BLACK);

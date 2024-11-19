@@ -31,7 +31,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-extern volatile int calibrated;
+extern volatile int drawable;
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

@@ -64,7 +64,7 @@ static void MX_FSMC_Init(void);
 /* USER CODE BEGIN 0 */
 volatile int drawable=0;
 
-char patterns[4][FRAME_WIDTH][FRAME_HEIGHT]={0}; 
+char patterns[4][FRAME_HEIGHT][FRAME_WIDTH]={0}; 
 
 enum Page{HOME, CANVA, MACHINE_DRAW, CALIBRATION}; 
 
@@ -157,7 +157,7 @@ void savePattern(uint16_t startP, uint16_t startC, int pattern_num) {
           black_count += (LCD_GetPointPixel(startC+j*2+1, startP+i*2)==BLACK);
           black_count += (LCD_GetPointPixel(startC+j*2, startP+i*2+1)==BLACK);
           black_count += (LCD_GetPointPixel(startC+j*2+1, startP+i*2+1)==BLACK);
-          patterns[pattern_num][i][j] = (black_count>=2);
+          patterns[pattern_num][j][i] = (black_count>=2);
         }
     }
 }
@@ -166,7 +166,7 @@ void displayPattern(uint16_t startP, uint16_t startC, int pattern_num, uint16_t 
 
 	for (int i = 0; i < FRAME_WIDTH; i++) {
 		        for (int j = 0; j < FRAME_HEIGHT; j++) {
-		          if(patterns[pattern_num][i][j]){
+		          if(patterns[pattern_num][j][i]){
 		            LCD_Clear(startC+j*2, startP+i*2, 2, 2, colour);
 		          }
 		        }

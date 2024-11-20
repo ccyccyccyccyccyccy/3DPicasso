@@ -306,6 +306,52 @@ int main(void)
     }
 
     if (current_page==CALIBRATION){
+      if ( ucXPT2046_TouchFlag == 1 ){
+     
+       strType_XPT2046_Coordinate strDisplayCoordinate;
+       if ( XPT2046_Get_TouchedPoint ( & strDisplayCoordinate, & strXPT2046_TouchPara ) ){
+        //check which button is pressed
+
+        //x -ve
+         if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>40 && strDisplayCoordinate.y<70){
+        	 //x -ve is pressed
+           LCD_DrawString(110, 250, "x -ve");
+         }
+        //x +ve
+         else if (strDisplayCoordinate.x>150 && strDisplayCoordinate.x<180 && strDisplayCoordinate.y>40 && strDisplayCoordinate.y<70){
+        	//x +ve is pressed
+          LCD_DrawString(110, 250, "x +ve");
+         }
+        //y -ve
+         else if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>90 && strDisplayCoordinate.y<120){
+        	//y -ve is pressed
+          LCD_DrawString(110, 250, "y -ve");
+         }
+        //y +ve
+         else if (strDisplayCoordinate.x>150 && strDisplayCoordinate.x<180 && strDisplayCoordinate.y>90 && strDisplayCoordinate.y<120){
+         //y +ve
+         LCD_DrawString(110, 250, "y +ve");
+         }
+        //pen down
+         else if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>150 && strDisplayCoordinate.y<180){
+             //pen down
+            LCD_DrawString(110, 250, "pen down");
+         }
+        //pen up
+         else if (strDisplayCoordinate.x>150 && strDisplayCoordinate.x<180 && strDisplayCoordinate.y>150 && strDisplayCoordinate.y<180){
+            //penup
+            LCD_DrawString(110, 250, "pen up");
+         }
+        //rotate
+         else if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>200 && strDisplayCoordinate.y<230){
+            //maybe force pen up 
+            //rotate
+            LCD_DrawString(110, 250, "rotate");
+         }
+       }
+      ucXPT2046_TouchFlag = 0;
+    }
+
       check_homeKey(&current_page); 
 
     }

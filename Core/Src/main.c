@@ -218,6 +218,21 @@ void printline(char* line, int* row){
   *row+=20;
 }
 
+void machine_draw_displayPattern(char pattern[FRAME_HEIGHT][FRAME_WIDTH], uint16_t startP, uint16_t startC){
+  LCD_Clear(startC, startP, FRAME_WIDTH, FRAME_HEIGHT, WHITE);
+  LCD_DrawLine(startC, startP, startC+FRAME_WIDTH, startP, BLACK);
+  LCD_DrawLine(startC, startP, startC, startP+FRAME_HEIGHT, BLACK);
+  LCD_DrawLine(startC+FRAME_WIDTH, startP, startC+FRAME_WIDTH, startP+FRAME_HEIGHT, BLACK);
+  LCD_DrawLine(startC, startP+FRAME_HEIGHT, startC+FRAME_WIDTH, startP+FRAME_HEIGHT, BLACK);
+  for (int i = 0; i < FRAME_WIDTH; i++) {
+    for (int j = 0; j < FRAME_HEIGHT; j++) {
+      if(pattern[j][i]){
+        LCD_DrawDot(startC+i, startP+j, BLACK);
+      }
+    }
+  }
+}
+
 //fucntions for the machine
 
 struct point {
@@ -530,21 +545,14 @@ void penUp(int* row){
   //sprintf(buffer, "Pen up");
   //printline(buffer, row);
   TIM2->CCR3= 500;
-//  HAL_Delay(250);
-//  TIM2->CCR3= 750;
-  HAL_Delay(250);
-  TIM2->CCR3= 1000;
 }
 
 void penDown(int* row){
   //char buffer[20];
   //sprintf(buffer, "Pen down");
   //printline(buffer, row);
-  TIM2->CCR3= 1000;
-//   HAL_Delay(250);
-//    TIM2->CCR3= 750;
-    HAL_Delay(250);
-    TIM2->CCR3= 500;
+
+    TIM2->CCR3= 1000;
 }
 
 void rotate_fn(struct point newPos, struct point* actuatorPos, int* row){
@@ -558,11 +566,11 @@ void rotate_fn(struct point newPos, struct point* actuatorPos, int* row){
 void drawLine(struct point newPos, struct point* actuatorPos, int* row){
   int x_diff= newPos.x - actuatorPos->x;
   int y_diff= newPos.y - actuatorPos->y;
-  move_x(x_diff);
-  move_y(y_diff);
   char buffer[40];
   sprintf(buffer, "From [%d, %d] to [%d, %d]", actuatorPos->y, actuatorPos->x, newPos.y, newPos.x);
   printline(buffer, row);
+  move_x(x_diff);
+  move_y(y_diff);
   actuatorPos->x = newPos.x;
   actuatorPos->y = newPos.y;
 }
@@ -663,13 +671,18 @@ void draw_plane(char arr[FRAME_HEIGHT][FRAME_WIDTH], struct point* actualPos, in
             struct point newPos= {start_pos, r,actualPos->a}; 
             drawLine(newPos, actualPos, row);  //move to start pos 
 
-            penDown(&row); //start drawing
+            penDown(row); //start drawing
             newPos.x = end_pos; 
-            char buffer[40];
-            sprintf(buffer, "from [%d, %d] to [%d, %d]", actualPos->y, actualPos->x, newPos.y, newPos.x );
-            printline(buffer, row); 
-            drawLine(newPos, actualPos, row);
-            penUp(&row);
+            // char buffer[40];
+            // sprintf(buffer, "from [%d, %d] to [%d, %d]", actualPos->y, actualPos->x, newPos.y, newPos.x );
+            // printline(buffer, row); 
+
+            //visualize drawing //+5 is the offset 
+            LCD_DrawLine(actualPos->x+5, actualPos->y+5, newPos.x+5, newPos.y+5, RED); 
+
+            drawLine(newPos, actualPos, row);// actualPos is updated to newPos
+            penUp(row);
+            
 
             //end of segment
             if (scan_dir==1){
@@ -866,14 +879,18 @@ int main(void)
     if (current_page==MACHINE_DRAW){
       if (machine_draw_flag){
         for (int i=0; i<4; i++){
+          uint16_t startP= 5; 
+          uint16_t startC= 5;
+          machine_draw_displayPattern(patterns[i], startP, startC);
           draw_plane(patterns[i], &actualPos, &row);
           penUp(&row);
-          reset_home(&actualPos, &row);
+          //reset_home(&actualPos, &row); //no need to go home
           int new_a= (actualPos.a+90)%360;
           struct point newPos= {0, 0, new_a};
           rotate_fn(newPos, &actualPos, &row);
           
         }
+        reset_home(&actualPos, &row); //go home at the end 
         machine_draw_flag=0;
         char buffer[40];
         sprintf(buffer, "Drawing finished. Press K2.");
@@ -1048,7 +1065,7 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 1000;
+  sConfigOC.Pulse = 500;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
@@ -1134,13 +1151,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : board_LED_Pin board_LEDB1_Pin y_Pin yB13_Pin
-                           yB14_Pin yB15_Pin board_LEDB5_Pin */
-  GPIO_InitStruct.Pin = board_LED_Pin|board_LEDB1_Pin|y_Pin|yB13_Pin
-                          |yB14_Pin|yB15_Pin|board_LEDB5_Pin;
+  /*Configure GPIO pins : board_LED_Pin board_LEDB1_Pin board_LEDB5_Pin */
+  GPIO_InitStruct.Pin = board_LED_Pin|board_LEDB1_Pin|board_LEDB5_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : y_Pin yB13_Pin yB14_Pin yB15_Pin */
+  GPIO_InitStruct.Pin = y_Pin|yB13_Pin|yB14_Pin|yB15_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PD12 PD13 AD2_Pin */

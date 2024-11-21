@@ -49,6 +49,8 @@ extern volatile int drawable;
 
 /* USER CODE END EM */
 
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
@@ -62,6 +64,38 @@ void Error_Handler(void);
 #define K1_Pin GPIO_PIN_0
 #define K1_GPIO_Port GPIOA
 #define K1_EXTI_IRQn EXTI0_IRQn
+#define X_Pin GPIO_PIN_2
+#define X_GPIO_Port GPIOA
+#define XA3_Pin GPIO_PIN_3
+#define XA3_GPIO_Port GPIOA
+#define XA4_Pin GPIO_PIN_4
+#define XA4_GPIO_Port GPIOA
+#define XA5_Pin GPIO_PIN_5
+#define XA5_GPIO_Port GPIOA
+#define board_LED_Pin GPIO_PIN_0
+#define board_LED_GPIO_Port GPIOB
+#define board_LEDB1_Pin GPIO_PIN_1
+#define board_LEDB1_GPIO_Port GPIOB
+#define up_down_Pin GPIO_PIN_10
+#define up_down_GPIO_Port GPIOB
+#define y_Pin GPIO_PIN_12
+#define y_GPIO_Port GPIOB
+#define yB13_Pin GPIO_PIN_13
+#define yB13_GPIO_Port GPIOB
+#define yB14_Pin GPIO_PIN_14
+#define yB14_GPIO_Port GPIOB
+#define yB15_Pin GPIO_PIN_15
+#define yB15_GPIO_Port GPIOB
+#define A_Pin GPIO_PIN_6
+#define A_GPIO_Port GPIOC
+#define AC7_Pin GPIO_PIN_7
+#define AC7_GPIO_Port GPIOC
+#define AC12_Pin GPIO_PIN_12
+#define AC12_GPIO_Port GPIOC
+#define AD2_Pin GPIO_PIN_2
+#define AD2_GPIO_Port GPIOD
+#define board_LEDB5_Pin GPIO_PIN_5
+#define board_LEDB5_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

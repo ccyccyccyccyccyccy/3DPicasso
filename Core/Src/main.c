@@ -47,7 +47,10 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
- SRAM_HandleTypeDef hsram1;
+ TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim2;
+
+SRAM_HandleTypeDef hsram1;
 
 /* USER CODE BEGIN PV */
 
@@ -57,6 +60,8 @@
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_FSMC_Init(void);
+static void MX_TIM1_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -213,16 +218,337 @@ void printline(char* line, int* row){
   *row+=20;
 }
 
+//fucntions for the machine
+
 struct point {
   int x; //correspond to FRAME_WIDTH
   int y; //correspond to FRAME_HEIGHT
   int a; //angle
 };
 
-void penDown(){;}; 
-void penUp(){;}; 
+//stepper motor
+
+enum MotorType{
+  M_42BYG,
+  M_28BYJ
+};
+
+struct StepperMotor{
+  GPIO_TypeDef *gpio_port_in1; 
+  uint16_t gpio_pin_in1;
+  GPIO_TypeDef *gpio_port_in2; 
+  uint16_t gpio_pin_in2;
+  GPIO_TypeDef *gpio_port_in3;
+  uint16_t gpio_pin_in3;
+  GPIO_TypeDef *gpio_port_in4;
+  uint16_t gpio_pin_in4;
+  enum MotorType motor_type;
+  int last_step_num; //only for a_motor
+};
+
+void delay (uint16_t us)
+{
+	__HAL_TIM_SET_COUNTER(&htim1, 0);
+	while (__HAL_TIM_GET_COUNTER(&htim1) < us);
+}
+
+/* use like delay */
+
+void stepper_set_rpm (int rpm, int stepsperrev)  // Set rpm--> max 13, min 1,,,  went to 14 rev/min
+{
+	delay(60000000/stepsperrev/rpm);
+  //microseconds     rev        minute
+  //------------ x --------- x --------
+  //    minute        steps      rev
+}
+
+void stepper_28byj_half_drive (int step, struct StepperMotor *m )
+{
+	switch (step){
+		case 0:
+			  HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_SET);   // IN1
+			  HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_RESET);   // IN2
+			  HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_RESET);   // IN3
+			  HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_RESET);   // IN4
+			  break;
+
+		case 1:
+			  HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_SET);   // IN1
+			  HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_SET);   // IN2
+			  HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_RESET);   // IN3
+			  HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_RESET);   // IN4
+			  break;
+
+		case 2:
+			  HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_RESET);   // IN1
+			  HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_SET);   // IN2
+			  HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_RESET);   // IN3
+			  HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_RESET);   // IN4
+			  break;
+
+		case 3:
+			  HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_RESET);   // IN1
+			  HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_SET);   // IN2
+			  HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_SET);   // IN3
+			  HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_RESET);   // IN4
+			  break;
+
+		case 4:
+			  HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_RESET);   // IN1
+			  HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_RESET);   // IN2
+			  HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_SET);   // IN3
+			  HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_RESET);   // IN4
+			  break;
+
+		case 5:
+			  HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_RESET);   // IN1
+			  HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_RESET);   // IN2
+			  HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_SET);   // IN3
+			  HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_SET);   // IN4
+			  break;
+
+		case 6:
+			  HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_RESET);   // IN1
+			  HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_RESET);   // IN2
+			  HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_RESET);   // IN3
+			  HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_SET);   // IN4
+			  break;
+
+		case 7:
+			  HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_SET);   // IN1
+			  HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_RESET);   // IN2
+			  HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_RESET);   // IN3
+			  HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_SET);   // IN4
+			  break;
+
+		}
+}
+
+void stepper_42byg_full_drive (int step, struct StepperMotor* m)//for 42byg //full drive
+{
+
+	switch (step){
+		case 0:
+			  HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_SET);   // IN1
+			  HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_RESET);   // IN2
+			  HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3,GPIO_PIN_SET);   // IN3
+			  HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4,GPIO_PIN_RESET);   // IN4
+			  break;
+
+		case 1:
+			  HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_RESET);   // IN1
+			  HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_SET);   // IN2
+			  HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_SET);   // IN3
+			  HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_RESET);   // IN4
+			  break;
+
+		case 2:
+			  HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_RESET);   // IN1
+			  HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_SET);   // IN2
+			  HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_RESET);   // IN3
+			  HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_SET);   // IN4
+			  break;
+
+		case 3:
+			  HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_SET);   // IN1
+			  HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_RESET);   // IN2
+			  HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_RESET);   // IN3
+			  HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_SET);   // IN4
+			  break;
+	
+  }
+  
+}
+
+void stepper_42byg_half_drive(int step, struct StepperMotor* m) // for 42byg // half drive
+{
+    switch (step) {
+        case 0:
+            HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_SET);   // IN1
+            HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_RESET); // IN2
+            HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_RESET); // IN3
+            HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_RESET); // IN4
+            break;
+
+        case 1:
+            HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_SET);   // IN1
+            HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_RESET); // IN2
+            HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_SET);   // IN3
+            HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_RESET); // IN4
+            break;
+
+        case 2:
+            HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_RESET); // IN1
+            HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_RESET); // IN2
+            HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_SET);   // IN3
+            HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_RESET); // IN4
+            break;
+
+        case 3:
+            HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_RESET); // IN1
+            HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_SET);   // IN2
+            HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_SET);   // IN3
+            HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_RESET); // IN4
+            break;
+
+        case 4:
+            HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_RESET); // IN1
+            HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_SET);   // IN2
+            HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_RESET); // IN3
+            HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_RESET); // IN4
+            break;
+
+        case 5:
+            HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_RESET); // IN1
+            HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_SET);   // IN2
+            HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_RESET); // IN3
+            HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_SET);   // IN4
+            break;
+
+        case 6:
+            HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_RESET); // IN1
+            HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_RESET); // IN2
+            HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_RESET); // IN3
+            HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_SET);   // IN4
+            break;
+
+        case 7:
+            HAL_GPIO_WritePin(m->gpio_port_in1, m->gpio_pin_in1, GPIO_PIN_SET);   // IN1
+            HAL_GPIO_WritePin(m->gpio_port_in2, m->gpio_pin_in2, GPIO_PIN_RESET); // IN2
+            HAL_GPIO_WritePin(m->gpio_port_in3, m->gpio_pin_in3, GPIO_PIN_RESET); // IN3
+            HAL_GPIO_WritePin(m->gpio_port_in4, m->gpio_pin_in4, GPIO_PIN_SET);   // IN4
+            break;
+    }
+}
+
+void stepper_step_angle (float angle, int direction, int rpm, struct StepperMotor* m) 
+{
+  //float anglepersequence = 
+  float anglepersequence ; 
+  if (m->motor_type == M_42BYG){
+    anglepersequence = 7.2; //360/(200/4), or simply 1.8*4
+
+  }
+  else if( m->motor_type == M_28BYJ){
+    anglepersequence = 0.703125;  // 360 = 512 sequences
+    //512= 4096/8
+  }
+
+  int numberofsequences = (int) (angle/anglepersequence);
+
+
+  if (m->motor_type == M_42BYG){
+      for (int seq=0; seq<numberofsequences; seq++){
+    if (direction == 0){  // for clockwise
+      for (int step=0; step<4; step++){
+        stepper_42byg_full_drive(step, m);
+      stepper_set_rpm(rpm, 200);
+      }
+
+    }
+
+    else if (direction == 1){  // for anti-clockwise
+      for (int step=3; step>=0; step--)
+      {
+        stepper_42byg_full_drive(step, m);
+      stepper_set_rpm(rpm, 200);
+      }
+    }
+    }
+  }
+  else if (m->motor_type == M_28BYJ){
+    for (int seq=0; seq<numberofsequences; seq++){
+      if (direction == 0)  // for clockwise
+    {
+      for (int step=7; step>=0; step--)
+      {
+        stepper_28byj_half_drive(step, m);
+        stepper_set_rpm(rpm, 4096);
+      }
+
+    }
+
+    else if (direction == 1)  // for anti-clockwise
+    {
+      for (int step=0; step<8; step++)
+      {
+        stepper_28byj_half_drive(step, m);
+        stepper_set_rpm(rpm, 4096);
+      }
+    }
+    }
+  }
+}
+
+//define the motor as global var
+struct StepperMotor m28byj={GPIOB, GPIO_PIN_12, GPIOB, GPIO_PIN_13, GPIOB, GPIO_PIN_14, GPIOB, GPIO_PIN_15, M_28BYJ};
+struct StepperMotor x_motor={GPIOA, GPIO_PIN_5, GPIOA, GPIO_PIN_2, GPIOA, GPIO_PIN_3, GPIOA, GPIO_PIN_4, M_42BYG, 0};
+struct StepperMotor a_motor={GPIOD, GPIO_PIN_2, GPIOC, GPIO_PIN_12, GPIOC, GPIO_PIN_6, GPIOC, GPIO_PIN_7, M_42BYG, -1};
+
+void move_x(int dist){ //in terms of mm
+	int dir;
+	int rpm=70;
+	if (dist<0){
+		dir= 0; //to the left //away from motor
+	}
+	else if (dist>0){ //to the right //toward motor
+		dir=1;
+	}
+
+	for (int i=0; i<abs(dist); i++){
+		stepper_step_angle(360, dir,rpm, &x_motor);
+	}
+}
+
+void move_y(int dist){ //in terms of mm
+	int dir;
+	int rpm=12;
+	if (dist<0){
+			dir= 0; //towards motor
+		}
+		else if (dist>0){
+			dir=1; //away from motor
+		}
+
+		for (int i=0; i<abs(dist); i++){
+			stepper_step_angle (360, dir, rpm, &m28byj);
+		}
+}
+
+void rotate_90(struct StepperMotor* m){
+	for (int i=0; i<101; i++){
+		m->last_step_num= (m->last_step_num+1)%8;
+		stepper_42byg_half_drive(m->last_step_num, m);
+		stepper_set_rpm(70, 400);
+	}
+}
+
+
+
+void penUp(int* row){
+  //char buffer[20];
+  //sprintf(buffer, "Pen up");
+  //printline(buffer, row);
+  TIM2->CCR3= 500;
+//  HAL_Delay(250);
+//  TIM2->CCR3= 750;
+  HAL_Delay(250);
+  TIM2->CCR3= 1000;
+}
+
+void penDown(int* row){
+  //char buffer[20];
+  //sprintf(buffer, "Pen down");
+  //printline(buffer, row);
+  TIM2->CCR3= 1000;
+//   HAL_Delay(250);
+//    TIM2->CCR3= 750;
+    HAL_Delay(250);
+    TIM2->CCR3= 500;
+}
+
 void rotate_fn(struct point newPos, struct point* actuatorPos, int* row){
-  //rotate_90(&a_motor); //TODO: uncomment this
+  rotate_90(&a_motor); 
   char buffer[40];
   sprintf(buffer, "Rotate %d to %d", actuatorPos->a,newPos.a);
   printline(buffer, row);
@@ -230,10 +556,26 @@ void rotate_fn(struct point newPos, struct point* actuatorPos, int* row){
   }; 
 
 void drawLine(struct point newPos, struct point* actuatorPos, int* row){
-    actuatorPos->x= newPos.x; 
-    actuatorPos->y= newPos.y; 
-    HAL_Delay(1000);
-     };  
+  int x_diff= newPos.x - actuatorPos->x;
+  int y_diff= newPos.y - actuatorPos->y;
+  move_x(x_diff);
+  move_y(y_diff);
+  char buffer[40];
+  sprintf(buffer, "From [%d, %d] to [%d, %d]", actuatorPos->y, actuatorPos->x, newPos.y, newPos.x);
+  printline(buffer, row);
+  actuatorPos->x = newPos.x;
+  actuatorPos->y = newPos.y;
+}
+
+void reset_home(struct point* actuatorPos, int* row){
+  move_x(-actuatorPos->x);
+  move_y(-actuatorPos->y);
+  actuatorPos->x = 0;
+  actuatorPos->y = 0;
+  char buffer[40];
+  sprintf(buffer, "Reset home");
+  printline(buffer, row);
+}
 
 
 void DisplayMachineDraw(){
@@ -321,13 +663,13 @@ void draw_plane(char arr[FRAME_HEIGHT][FRAME_WIDTH], struct point* actualPos, in
             struct point newPos= {start_pos, r,actualPos->a}; 
             drawLine(newPos, actualPos, row);  //move to start pos 
 
-            penDown(); //start drawing
+            penDown(&row); //start drawing
             newPos.x = end_pos; 
             char buffer[40];
             sprintf(buffer, "from [%d, %d] to [%d, %d]", actualPos->y, actualPos->x, newPos.y, newPos.x );
             printline(buffer, row); 
             drawLine(newPos, actualPos, row);
-            penUp(); 
+            penUp(&row);
 
             //end of segment
             if (scan_dir==1){
@@ -385,11 +727,15 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_FSMC_Init();
+  MX_TIM1_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 	
 	macXPT2046_CS_DISABLE();
 	
 	LCD_INIT();
+  HAL_TIM_Base_Start(&htim1);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
 
 	LCD_Clear (50, 80, 140, 70, RED);
 	LCD_DrawString(68, 100, "TOUCHPAD DEMO");
@@ -465,37 +811,50 @@ int main(void)
          if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>40 && strDisplayCoordinate.y<70){
         	 //x -ve is pressed
            LCD_DrawString(110, 250, "x -ve");
+           move_x(-1);
+           
          }
         //x +ve
          else if (strDisplayCoordinate.x>150 && strDisplayCoordinate.x<180 && strDisplayCoordinate.y>40 && strDisplayCoordinate.y<70){
         	//x +ve is pressed
           LCD_DrawString(110, 250, "x +ve");
+          move_x(1);
+          
          }
         //y -ve
          else if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>90 && strDisplayCoordinate.y<120){
         	//y -ve is pressed
-          LCD_DrawString(110, 250, "y -ve");
+           LCD_DrawString(110, 250, "y -ve");
+          move_y(-1);
+         
          }
         //y +ve
          else if (strDisplayCoordinate.x>150 && strDisplayCoordinate.x<180 && strDisplayCoordinate.y>90 && strDisplayCoordinate.y<120){
          //y +ve
          LCD_DrawString(110, 250, "y +ve");
+          move_y(1);
+         
          }
         //pen down
          else if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>150 && strDisplayCoordinate.y<180){
              //pen down
             LCD_DrawString(110, 250, "pen down");
+            penDown(&row);
          }
         //pen up
          else if (strDisplayCoordinate.x>150 && strDisplayCoordinate.x<180 && strDisplayCoordinate.y>150 && strDisplayCoordinate.y<180){
             //penup
             LCD_DrawString(110, 250, "pen up");
+            penUp(&row);
+            
          }
         //rotate
          else if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>200 && strDisplayCoordinate.y<230){
             //maybe force pen up 
             //rotate
             LCD_DrawString(110, 250, "rotate");
+            rotate_90(&a_motor);
+            
          }
        }
       ucXPT2046_TouchFlag = 0;
@@ -508,19 +867,19 @@ int main(void)
       if (machine_draw_flag){
         for (int i=0; i<4; i++){
           draw_plane(patterns[i], &actualPos, &row);
-          penUp();
+          penUp(&row);
+          reset_home(&actualPos, &row);
           int new_a= (actualPos.a+90)%360;
           struct point newPos= {0, 0, new_a};
           rotate_fn(newPos, &actualPos, &row);
-          drawLine(newPos, &actualPos, &row); //go home
+          
         }
         machine_draw_flag=0;
-      }
-      else{
         char buffer[40];
         sprintf(buffer, "Drawing finished. Press K2.");
         printline(buffer, &row);
       }
+
       check_homeKey(&current_page); 
     }
 	  
@@ -599,6 +958,111 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 71;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 65535;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 143;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 9999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 1000;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -618,10 +1082,19 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOE, GPIO_PIN_2|GPIO_PIN_0|GPIO_PIN_1, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_5, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, X_Pin|XA3_Pin|XA4_Pin|XA5_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, board_LED_Pin|board_LEDB1_Pin|board_LEDB5_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, y_Pin|yB13_Pin|yB14_Pin|yB15_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|AD2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, A_Pin|AC7_Pin|AC12_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PE2 PE0 PE1 */
   GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_0|GPIO_PIN_1;
@@ -654,19 +1127,35 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(K1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB0 PB1 PB5 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_5;
+  /*Configure GPIO pins : X_Pin XA3_Pin XA4_Pin XA5_Pin */
+  GPIO_InitStruct.Pin = X_Pin|XA3_Pin|XA4_Pin|XA5_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : board_LED_Pin board_LEDB1_Pin y_Pin yB13_Pin
+                           yB14_Pin yB15_Pin board_LEDB5_Pin */
+  GPIO_InitStruct.Pin = board_LED_Pin|board_LEDB1_Pin|y_Pin|yB13_Pin
+                          |yB14_Pin|yB15_Pin|board_LEDB5_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PD12 PD13 */
-  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13;
+  /*Configure GPIO pins : PD12 PD13 AD2_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|AD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : A_Pin AC7_Pin AC12_Pin */
+  GPIO_InitStruct.Pin = A_Pin|AC7_Pin|AC12_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);

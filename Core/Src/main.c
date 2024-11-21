@@ -24,7 +24,8 @@
 /* USER CODE BEGIN Includes */
 #include "lcdtp.h"
 #include "xpt2046.h"
-
+#include <stdlib.h>
+#include <stdio.h>
 
 /* USER CODE END Includes */
 
@@ -202,10 +203,154 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
 //funtion for the MACHINE_DRAW page
 
+//helper functions
+void printline(char* line, int* row){
+  if (*row>300){
+    LCD_Clear(0,60,240,260, WHITE);
+    *row=60;
+  }
+  LCD_DrawString(0, *row, line);
+  *row+=20;
+}
+
+struct point {
+  int x; //correspond to FRAME_WIDTH
+  int y; //correspond to FRAME_HEIGHT
+  int a; //angle
+};
+
+void penDown(){;}; 
+void penUp(){;}; 
+void rotate_fn(struct point newPos, struct point* actuatorPos, int* row){
+  //rotate_90(&a_motor); //TODO: uncomment this
+  char buffer[40];
+  sprintf(buffer, "Rotate %d to %d", actuatorPos->a,newPos.a);
+  printline(buffer, row);
+  actuatorPos->a = newPos.a; 
+  }; 
+
+void drawLine(struct point newPos, struct point* actuatorPos, int* row){
+    actuatorPos->x= newPos.x; 
+    actuatorPos->y= newPos.y; 
+    HAL_Delay(1000);
+     };  
+
+
 void DisplayMachineDraw(){
   LCD_Clear ( 0, 0, 240, 320, WHITE );
   }
 
+
+//return -1 if no such bit found
+//value is either 0 or 1 
+int find_next_start(char arr[FRAME_HEIGHT][FRAME_WIDTH], int row, int start_index, int dir){ 
+    int position= start_index; 
+    if (dir==1){
+        for (;position<FRAME_WIDTH && arr[row][position]!=1; position++);  
+                   //case 0, no such bit found, whole line empty
+                   //then position will be FRAME_WIDTH
+                   //case 1: bit is found. then  arr[row][position]==1
+        if (position==FRAME_WIDTH){
+            return -1; 
+        }
+        return position;
+    }
+    else if (dir==-1){
+        for (;position>=0 && arr[row][position]!=1; position--);  
+                   //case 0, no such bit found, whole line empty
+                   //then position <0
+        if (position<0){
+            return -1; 
+        }
+        return position;
+    }
+    return -1;
+}
+
+int find_next_end(char arr[FRAME_HEIGHT][FRAME_WIDTH], int row, int start_index, int dir){ 
+    int position= start_index; 
+    if (dir==1){
+        for (;position<FRAME_WIDTH && arr[row][position]!=0; position++);  
+                //case 0, no such bit found, whole line full i.e.arr[row][FRAME_WIDTH-1]==1
+                //then position will be FRAME_WIDTH, we should return FRAME_WIDTH-1
+                //case 1: bit is found. then  arr[row][position]==0, we should return position-1
+        position= (position < 0)? 0: position-1; //hopefully we never get position<0...
+        return position;
+    }
+    else if (dir==-1){
+        for (;position>=0 && arr[row][position]!=0; position--);  
+                   //case 0, no such bit found, whole line full i.e.arr[row][0]==1
+                   //but now position will be -1, we should return 0
+                //case 1: bit is found. then  arr[row][position]==0, we should return position+1
+        position= (position> FRAME_WIDTH-1)? FRAME_WIDTH-1: position+1; //hopefully we never get position>FRAME_WIDTH-1...
+        return position;
+    }
+    return -1; //hopefully we never reach here 
+}
+
+
+void draw_plane(char arr[FRAME_HEIGHT][FRAME_WIDTH], struct point* actualPos, int* row){//1: draw. 0: don't draw
+
+    int scan_dir=1; //1 means left2right. -1 means right2left
+    int start_pos=0; 
+    int end_pos =0 ;
+    for (int r=0; r<FRAME_HEIGHT; r++){
+
+        if (scan_dir==1){
+            start_pos=0; 
+            end_pos =0 ;  //line is [start_pos, end_pos]   
+        }
+        else if (scan_dir==-1){
+            start_pos=FRAME_WIDTH-1 ; 
+            end_pos =FRAME_WIDTH-1  ;}  //line is [start_pos, end_pos]
+        while ((scan_dir==1 && end_pos<FRAME_WIDTH-1)|| (scan_dir==-1 && end_pos>0)){
+            //scan dir ==1
+            //case 0, line [FRAME_WIDTH-1 ] is 0, then the start_pos will eventually be -1
+            //case 1: line[FRAME_WIDTH-1] is 1, then the end_pos will be FRAME_WIDTH-1 eventually
+            
+            //scan dir ==-1 
+            //case 0: line[0] is 0, then the start_pos will eventually be -1
+            //case 1: line[0] is 1, then the end_pos will be 0 eventually 
+            start_pos= find_next_start(arr, r, start_pos, scan_dir); 
+            //printf("next start: %d", start_pos); 
+            if (start_pos==-1){ //remaining line empty
+                break; //move on to next line
+            }
+            //else find the end of the line segment
+            end_pos= find_next_end(arr, r, start_pos, scan_dir); 
+            struct point newPos= {start_pos, r,actualPos->a}; 
+            drawLine(newPos, actualPos, row);  //move to start pos 
+
+            penDown(); //start drawing
+            newPos.x = end_pos; 
+            char buffer[40];
+            sprintf(buffer, "from [%d, %d] to [%d, %d]", actualPos->y, actualPos->x, newPos.y, newPos.x );
+            printline(buffer, row); 
+            drawLine(newPos, actualPos, row);
+            penUp(); 
+
+            //end of segment
+            if (scan_dir==1){
+                 start_pos = end_pos+1; 
+                if (start_pos>= FRAME_WIDTH){
+                    break; 
+                }
+                }
+            else if (scan_dir==-1){
+                start_pos = end_pos-1; 
+                if (start_pos< 0){
+                    break; 
+                }
+            }
+            }
+            
+           
+        scan_dir *= -1; 
+        //move to next line //FIXME: if next line is empty, no need to change dir
+        //FIXME: changing line issue
+
+    }
+}
 
 
 
@@ -254,7 +399,9 @@ int main(void)
   enum Page current_page = HOME;
   DisplayHome();
 	drawable=0;
-
+  int machine_draw_flag=0; 
+  struct point actualPos= {0, 0, 0}; 
+  int row=60; //start at 60
 	//DisplayCanva();
 	
   /* USER CODE END 2 */
@@ -292,6 +439,8 @@ int main(void)
         	 LCD_Clear (0,  0,  240, 320, WHITE); //don't know why need this
         	 current_page = MACHINE_DRAW;
           DisplayMachineDraw();
+          machine_draw_flag=1;
+          //TODO: go home fn //reset the position
          }
        }
       ucXPT2046_TouchFlag = 0;
@@ -356,6 +505,22 @@ int main(void)
 
     }
     if (current_page==MACHINE_DRAW){
+      if (machine_draw_flag){
+        for (int i=0; i<4; i++){
+          draw_plane(patterns[i], &actualPos, &row);
+          penUp();
+          int new_a= (actualPos.a+90)%360;
+          struct point newPos= {0, 0, new_a};
+          rotate_fn(newPos, &actualPos, &row);
+          drawLine(newPos, &actualPos, &row); //go home
+        }
+        machine_draw_flag=0;
+      }
+      else{
+        char buffer[40];
+        sprintf(buffer, "Drawing finished. Press K2.");
+        printline(buffer, &row);
+      }
       check_homeKey(&current_page); 
     }
 	  

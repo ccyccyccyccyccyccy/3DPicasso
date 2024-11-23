@@ -454,19 +454,35 @@ void stepper_step_angle (float angle, int direction, int rpm, struct StepperMoto
 
   if (m->motor_type == M_42BYG){
       for (int seq=0; seq<numberofsequences; seq++){
+    // if (direction == 0){  // for clockwise
+    //   for (int step=0; step<4; step++){
+    //     stepper_42byg_full_drive(step, m);
+    //   stepper_set_rpm(rpm, 200);
+    //   }
+
+    // }
+
+    // else if (direction == 1){  // for anti-clockwise
+    //   for (int step=3; step>=0; step--)
+    //   {
+    //     stepper_42byg_full_drive(step, m);
+    //   stepper_set_rpm(rpm, 200);
+    //   }
+    // }
+
     if (direction == 0){  // for clockwise
-      for (int step=0; step<4; step++){
-        stepper_42byg_full_drive(step, m);
-      stepper_set_rpm(rpm, 200);
+      for (int step=0; step<8; step++){
+        stepper_42byg_half_drive(step, m);
+      stepper_set_rpm(rpm, 400);
       }
 
     }
 
     else if (direction == 1){  // for anti-clockwise
-      for (int step=3; step>=0; step--)
+      for (int step=7; step>=0; step--)
       {
-        stepper_42byg_full_drive(step, m);
-      stepper_set_rpm(rpm, 200);
+        stepper_42byg_half_drive(step, m);
+      stepper_set_rpm(rpm, 400);
       }
     }
     }

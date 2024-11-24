@@ -515,20 +515,53 @@ void stepper_step_angle (float angle, int direction, int rpm, struct StepperMoto
 struct StepperMotor m28byj={GPIOB, GPIO_PIN_12, GPIOB, GPIO_PIN_13, GPIOB, GPIO_PIN_14, GPIOB, GPIO_PIN_15, M_28BYJ};
 struct StepperMotor x_motor={GPIOA, GPIO_PIN_5, GPIOA, GPIO_PIN_2, GPIOA, GPIO_PIN_3, GPIOA, GPIO_PIN_4, M_42BYG, 0};
 struct StepperMotor a_motor={GPIOD, GPIO_PIN_2, GPIOC, GPIO_PIN_12, GPIOC, GPIO_PIN_6, GPIOC, GPIO_PIN_7, M_42BYG, -1};
+//FIXME: make the last_step_num more consistent.
+//rn, last_step_num is actually next step (the step is used first, then updated) in the x axis
+//really last step for a axis (update first, then use the step )
+
+//scale: 60 deg for 1 mm
+//60/ 0.9= 66.67. take 67
+void x_pos_one_mm(struct StepperMotor* m, int rpm){ //for x axis only
+	for (int i=0; i<67; i++){
+			stepper_42byg_half_drive(m->last_step_num, m);
+			stepper_set_rpm(rpm, 400);
+			m->last_step_num= (m->last_step_num+1)%8;
+		}
+}
+
+void x_neg_one_mm(struct StepperMotor* m, int rpm){ //for x axis only
+	for (int i=0; i<67; i++){
+			stepper_42byg_half_drive(m->last_step_num, m);
+			stepper_set_rpm(rpm, 400);
+			m->last_step_num= (m->last_step_num-1);
+			if (m->last_step_num<0){
+				m->last_step_num+=8;
+			}
+		}
+}
 
 void move_x(int dist){ //in terms of mm
 	int dir;
-	int rpm=70;
-	if (dist<0){
+	int rpm=200;
+	if (dist>0){
 		dir= 0; //to the left //away from motor
+		for (int i=0; i<abs(dist); i++){
+			x_pos_one_mm(&x_motor, rpm);
+		}
+
+
 	}
-	else if (dist>0){ //to the right //toward motor
-		dir=1;
+	else if (dist<0){ 
+		dir=1; //to the right //toward motor
+		for (int i=0; i<abs(dist); i++){
+			x_neg_one_mm(&x_motor, rpm);
+		}
+
 	}
 
-	for (int i=0; i<abs(dist); i++){
-		stepper_step_angle(360, dir,rpm, &x_motor);
-	}
+//	for (int i=0; i<abs(dist); i++){
+//		stepper_step_angle(45, dir,rpm, &x_motor);
+//	}
 }
 
 void move_y(int dist){ //in terms of mm
@@ -840,14 +873,14 @@ int main(void)
          if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>40 && strDisplayCoordinate.y<70){
         	 //x -ve is pressed
            LCD_DrawString(110, 250, "x -ve");
-           move_x(-1);
+           move_x(-10);
            
          }
         //x +ve
          else if (strDisplayCoordinate.x>150 && strDisplayCoordinate.x<180 && strDisplayCoordinate.y>40 && strDisplayCoordinate.y<70){
         	//x +ve is pressed
           LCD_DrawString(110, 250, "x +ve");
-          move_x(1);
+          move_x(10);
           
          }
         //y -ve

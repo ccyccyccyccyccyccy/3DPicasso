@@ -542,7 +542,7 @@ void x_neg_one_mm(struct StepperMotor* m, int rpm){ //for x axis only
 
 void move_x(int dist){ //in terms of mm
 	int dir;
-	int rpm=200;
+	int rpm=50;
 	if (dist>0){
 		dir= 0; //to the left //away from motor
 		for (int i=0; i<abs(dist); i++){
@@ -580,7 +580,7 @@ void move_y(int dist){ //in terms of mm
 }
 
 void rotate_90(struct StepperMotor* m){
-	for (int i=0; i<101; i++){
+	for (int i=0; i<100; i++){
 		m->last_step_num= (m->last_step_num+1)%8;
 		stepper_42byg_half_drive(m->last_step_num, m);
 		stepper_set_rpm(70, 400);

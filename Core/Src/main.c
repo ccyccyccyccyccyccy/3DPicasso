@@ -26,7 +26,7 @@
 #include "xpt2046.h"
 #include <stdlib.h>
 #include <stdio.h>
-
+#include "math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,6 +49,9 @@
 /* Private variables ---------------------------------------------------------*/
  TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim7;
+DMA_HandleTypeDef hdma_tim4_ch1;
 
 SRAM_HandleTypeDef hsram1;
 
@@ -61,13 +64,197 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_FSMC_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_DMA_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM4_Init(void);
+static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+//for led
+#define MAX_LED 8
+#define LED_GROUP_SIZE 8
+#define USE_BRIGHTNESS 1
+
+uint8_t LED_Data[MAX_LED][3]; //G,R,B
+uint8_t LED_Mod[MAX_LED][3];  // for brightness
+
+volatile int sending_data=0;
+
+void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
+{
+	HAL_TIM_PWM_Stop_DMA(&htim4, TIM_CHANNEL_1);
+	sending_data=0; //finish sending
+
+}
+
+void Set_LED (int LEDnum, int Red, int Green, int Blue)
+{
+
+	LED_Data[LEDnum][0] = Green;
+	LED_Data[LEDnum][1] = Red;
+	LED_Data[LEDnum][2] = Blue;
+}
+
+void Set_Brightness (float brightness)  // 0-1. 1 is original.
+{
+
+#if USE_BRIGHTNESS
+
+	if (brightness > 1) brightness = 1;
+	if (brightness < 0) brightness = 0;
+	for (int i=0; i<MAX_LED; i++)
+	{
+		for (int j=0; j<3; j++)
+		{
+			float result=  (LED_Data[i][j])*brightness;
+			LED_Mod[i][j] =(uint8_t)result;
+		}
+	}
+
+#endif
+
+}
+
+uint16_t pwmData[(24*MAX_LED)+50];
+
+void WS2812_Send (void)
+{
+	//while (sending_data); //wait until the last transfer is done
+	//now, sending_data=0
+	if (sending_data){
+			LCD_DrawString(40, 100, "skipped");
+			return; }
+
+	uint32_t indx=0;
+	uint32_t color;
+
+
+	for (int i= 0; i<MAX_LED; i++)
+	{
+		int type= i%LED_GROUP_SIZE;
+#if USE_BRIGHTNESS
+		color = ((LED_Mod[type][0]<<16) | (LED_Mod[type][1]<<8) | (LED_Mod[type][2]));
+#else
+		color = ((LED_Data[type][0]<<16) | (LED_Data[type][1]<<8) | (LED_Data[type][2]));
+#endif
+
+		for (int i=23; i>=0; i--) //24 bits
+		{
+			if (color&(1<<i))
+			{
+				pwmData[indx] = 60;  // 2/3 of 90
+			}
+
+			else pwmData[indx] = 30;  // 1/3 of 90
+
+			indx++;
+		}
+
+	}
+
+	for (int i=0; i<50; i++) //finish sending data
+	{
+		pwmData[indx] = 0;
+		indx++;
+	}
+	sending_data=1; //start sending
+	HAL_TIM_PWM_Start_DMA(&htim4, TIM_CHANNEL_1, (uint32_t *)pwmData, indx);
+
+}
+
+void Reset_LED (void)
+{
+	for (int i=0; i<MAX_LED; i++)
+	{
+		LED_Data[i][0] = 0;
+		LED_Data[i][1] = 0;
+		LED_Data[i][2] = 0;
+	}
+}
+
+uint16_t effStep = 0;
+
+uint8_t rainbow_effect_right() {
+    // Strip ID: 0 - Effect: Rainbow - LEDS: 8
+    // Steps: 14 - Delay: 30
+    // Colors: 3 (255.0.0, 0.255.0, 0.0.255)
+    // Options: rainbowlen=8, toLeft=false,
+//  if(millis() - strip_0.effStart < 30 * (strip_0.effStep)) return 0x00;
+  float factor1, factor2;
+  uint16_t ind;
+  for(uint16_t j=0;j<8;j++) {
+    ind = 14 - (int16_t)(effStep - j * 1.75) % 14;
+    switch((int)((ind % 14) / 4.666666666666667)) {
+      case 0: factor1 = 1.0 - ((float)(ind % 14 - 0 * 4.666666666666667) / 4.666666666666667);
+              factor2 = (float)((int)(ind - 0) % 14) / 4.666666666666667;
+              Set_LED(j, 255 * factor1 + 0 * factor2, 0 * factor1 + 255 * factor2, 0 * factor1 + 0 * factor2);
+              WS2812_Send();
+              break;
+      case 1: factor1 = 1.0 - ((float)(ind % 14 - 1 * 4.666666666666667) / 4.666666666666667);
+              factor2 = (float)((int)(ind - 4.666666666666667) % 14) / 4.666666666666667;
+              Set_LED(j, 0 * factor1 + 0 * factor2, 255 * factor1 + 0 * factor2, 0 * factor1 + 255 * factor2);
+              WS2812_Send();
+              break;
+      case 2: factor1 = 1.0 - ((float)(ind % 14 - 2 * 4.666666666666667) / 4.666666666666667);
+              factor2 = (float)((int)(ind - 9.333333333333334) % 14) / 4.666666666666667;
+              Set_LED(j, 0 * factor1 + 255 * factor2, 0 * factor1 + 0 * factor2, 255 * factor1 + 0 * factor2);
+              WS2812_Send();
+              break;
+    }
+  }
+  if(effStep >= 14) {effStep = 0; return 0x03; }
+  else effStep++;
+  return 0x01;
+}
+
+volatile float brightness=1;
+volatile int bright2dark=1;
+volatile int breathing=0;
+
+void rainbow_refresh_right(){
+
+	for (int i=0; i<30; i++){
+	  	  rainbow_effect_right();
+	  	  HAL_Delay (30);
+	    }
+}
+
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim == &htim7)
+    {
+    	if (!breathing){return;} //need this
+	if (bright2dark){
+			  brightness-= 0.1;
+			  	  if (brightness<=0){
+			  		brightness=0;
+			  		bright2dark=0;
+			  	  }
+		  }
+		  else{
+			  brightness+= 0.1;
+			  if (brightness>=1){
+			  		  		brightness=1;
+			  		  		bright2dark=1;
+			  		  	  }
+		  }
+
+
+		  Set_Brightness(brightness);
+		  WS2812_Send();
+		  GPIOB -> ODR ^= GPIO_PIN_1; //toggles port b pin 1. odr is the output data register
+}}
+
+//end of led
+
+
+
 volatile int drawable=0;
 
 char patterns[4][FRAME_HEIGHT][FRAME_WIDTH]={0}; 
@@ -585,6 +772,7 @@ void rotate_90(struct StepperMotor* m){
 		stepper_42byg_half_drive(m->last_step_num, m);
 		stepper_set_rpm(70, 400);
 	}
+  //rainbow_refresh_right();
 }
 
 
@@ -790,20 +978,38 @@ int main(void)
   MX_GPIO_Init();
   MX_FSMC_Init();
   MX_TIM1_Init();
+  MX_DMA_Init();
   MX_TIM2_Init();
+  MX_TIM4_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
-	
+
 	macXPT2046_CS_DISABLE();
 	
 	LCD_INIT();
+	HAL_TIM_Base_Start_IT(&htim7);
   HAL_TIM_Base_Start(&htim1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+  LCD_DrawString(40, 100, "hello");
+    Set_LED(0, 255, 0, 0);
+//Reset_LED();
+  //rainbow_refresh_right();
+    breathing=1;
+  Set_Brightness(brightness);
+  WS2812_Send();
+
+  rainbow_refresh_right();
+  HAL_Delay (2000);
+  rainbow_refresh_right();
+   HAL_Delay (2000);
+    LCD_DrawString(200, 100, "rainbow");
 
 	LCD_Clear (50, 80, 140, 70, RED);
 	LCD_DrawString(68, 100, "TOUCHPAD DEMO");
 	HAL_Delay(2000);
 
 	while( ! XPT2046_Touch_Calibrate () );
+
   enum Page current_page = HOME;
   DisplayHome();
 	drawable=0;
@@ -811,7 +1017,7 @@ int main(void)
   struct point actualPos= {0, 0, 0}; 
   int row=60; //start at 60
 	//DisplayCanva();
-	
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -1125,6 +1331,119 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 2 */
   HAL_TIM_MspPostInit(&htim2);
+
+}
+
+/**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 0;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 89;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
+  HAL_TIM_MspPostInit(&htim4);
+
+}
+
+/**
+  * @brief TIM7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 7199;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 999;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+
+  /* USER CODE END TIM7_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
 

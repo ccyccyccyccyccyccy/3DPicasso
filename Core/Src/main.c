@@ -76,12 +76,12 @@ static void MX_TIM7_Init(void);
 /* USER CODE BEGIN 0 */
 
 //for led
-#define MAX_LED 8
+#define MAX_LED 20
 #define LED_GROUP_SIZE 8
 #define USE_BRIGHTNESS 1
 
-uint8_t LED_Data[MAX_LED][3]; //G,R,B
-uint8_t LED_Mod[MAX_LED][3];  // for brightness
+uint8_t LED_Data[LED_GROUP_SIZE][3]; //G,R,B
+uint8_t LED_Mod[LED_GROUP_SIZE][3];  // for brightness
 
 volatile int sending_data=0;
 
@@ -107,7 +107,7 @@ void Set_Brightness (float brightness)  // 0-1. 1 is original.
 
 	if (brightness > 1) brightness = 1;
 	if (brightness < 0) brightness = 0;
-	for (int i=0; i<MAX_LED; i++)
+	for (int i=0; i<LED_GROUP_SIZE; i++)
 	{
 		for (int j=0; j<3; j++)
 		{
@@ -124,8 +124,8 @@ uint16_t pwmData[(24*MAX_LED)+50];
 
 void WS2812_Send (void)
 {
-	//while (sending_data); //wait until the last transfer is done
-	//now, sending_data=0
+	//while (sending_data); //DO NOT WAIT
+	
 	if (sending_data){
 			LCD_DrawString(40, 100, "skipped");
 			return; }
@@ -169,7 +169,7 @@ void WS2812_Send (void)
 
 void Reset_LED (void)
 {
-	for (int i=0; i<MAX_LED; i++)
+	for (int i=0; i<LED_GROUP_SIZE; i++)
 	{
 		LED_Data[i][0] = 0;
 		LED_Data[i][1] = 0;
@@ -990,8 +990,8 @@ int main(void)
 	HAL_TIM_Base_Start_IT(&htim7);
   HAL_TIM_Base_Start(&htim1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
-  LCD_DrawString(40, 100, "hello");
-    Set_LED(0, 255, 0, 0);
+  
+    Reset_LED();
 //Reset_LED();
   //rainbow_refresh_right();
     breathing=1;
@@ -1002,7 +1002,7 @@ int main(void)
   HAL_Delay (2000);
   rainbow_refresh_right();
    HAL_Delay (2000);
-    LCD_DrawString(200, 100, "rainbow");
+  
 
 	LCD_Clear (50, 80, 140, 70, RED);
 	LCD_DrawString(68, 100, "TOUCHPAD DEMO");
@@ -1413,7 +1413,7 @@ static void MX_TIM7_Init(void)
   htim7.Instance = TIM7;
   htim7.Init.Prescaler = 7199;
   htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim7.Init.Period = 999;
+  htim7.Init.Period = 1999;
   htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
   {

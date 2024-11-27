@@ -36,7 +36,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define FRAME_WIDTH 160  //x axis for the machine, vertical page for the LCD
+#define FRAME_WIDTH 40  //x axis for the machine, vertical page for the LCD
 #define FRAME_HEIGHT 20  //y axis for the machine, horizontal column for the LCD
 
 /* USER CODE END PD */
@@ -127,7 +127,7 @@ void WS2812_Send (void)
 	//while (sending_data); //DO NOT WAIT
 	
 	if (sending_data){
-			LCD_DrawString(40, 100, "skipped");
+			//LCD_DrawString(40, 100, "skipped");
 			return; }
 
 	uint32_t indx=0;
@@ -733,7 +733,8 @@ void move_x(int dist){ //in terms of mm
 	if (dist>0){
 		dir= 0; //to the left //away from motor
 		for (int i=0; i<abs(dist); i++){
-			x_pos_one_mm(&x_motor, rpm);
+			//x_pos_one_mm(&x_motor, rpm);
+			x_neg_one_mm(&x_motor, rpm);
 		}
 
 
@@ -741,7 +742,8 @@ void move_x(int dist){ //in terms of mm
 	else if (dist<0){ 
 		dir=1; //to the right //toward motor
 		for (int i=0; i<abs(dist); i++){
-			x_neg_one_mm(&x_motor, rpm);
+			//x_neg_one_mm(&x_motor, rpm);
+			x_pos_one_mm(&x_motor, rpm);
 		}
 
 	}
@@ -781,7 +783,8 @@ void penUp(int* row){
   //char buffer[20];
   //sprintf(buffer, "Pen up");
   //printline(buffer, row);
-  TIM2->CCR3= 500;
+  //TIM2->CCR3= 500;
+  TIM2->CCR3= 1000;
 }
 
 void penDown(int* row){
@@ -789,7 +792,8 @@ void penDown(int* row){
   //sprintf(buffer, "Pen down");
   //printline(buffer, row);
 
-    TIM2->CCR3= 1000;
+    //TIM2->CCR3= 1000;
+    TIM2->CCR3= 500;
 }
 
 void rotate_fn(struct point newPos, struct point* actuatorPos, int* row){
@@ -1093,14 +1097,14 @@ int main(void)
          else if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>90 && strDisplayCoordinate.y<120){
         	//y -ve is pressed
            LCD_DrawString(110, 250, "y -ve");
-          move_y(-10);
+          move_y(-2);
          
          }
         //y +ve
          else if (strDisplayCoordinate.x>150 && strDisplayCoordinate.x<180 && strDisplayCoordinate.y>90 && strDisplayCoordinate.y<120){
          //y +ve
          LCD_DrawString(110, 250, "y +ve");
-          move_y(10);
+          move_y(2);
          
          }
         //pen down
@@ -1320,7 +1324,7 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 500;
+  sConfigOC.Pulse = 1000;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)

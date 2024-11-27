@@ -1093,14 +1093,14 @@ int main(void)
          else if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>90 && strDisplayCoordinate.y<120){
         	//y -ve is pressed
            LCD_DrawString(110, 250, "y -ve");
-          move_y(-1);
+          move_y(-10);
          
          }
         //y +ve
          else if (strDisplayCoordinate.x>150 && strDisplayCoordinate.x<180 && strDisplayCoordinate.y>90 && strDisplayCoordinate.y<120){
          //y +ve
          LCD_DrawString(110, 250, "y +ve");
-          move_y(1);
+          move_y(10);
          
          }
         //pen down

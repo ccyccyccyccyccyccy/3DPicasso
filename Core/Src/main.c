@@ -211,6 +211,41 @@ uint8_t rainbow_effect_right() {
   else effStep++;
   return 0x01;
 }
+volatile int color_seq=0;
+
+uint8_t rainbow_colors[7][3] = {
+    {255, 0, 0},    // Red
+    {255, 127, 0},  // Orange
+    {255, 255, 0},  // Yellow
+    {0, 255, 0},    // Green
+    {0, 0, 255},    // Blue
+    {75, 0, 130},   // Indigo
+    {148, 0, 211},  // Violet
+};
+
+
+
+void led_cascade_effect(int dir){
+	Reset_LED();
+		WS2812_Send();
+		HAL_Delay(60);
+	if (dir==1){
+		for (int i=0; i<LED_GROUP_SIZE; i++){ //i is the type to be on
+				Set_LED(i, rainbow_colors[color_seq][0], rainbow_colors[color_seq][1], rainbow_colors[color_seq][2]);
+				WS2812_Send();
+				HAL_Delay(60);}
+	}
+	else if (dir==-1){
+		for (int i=LED_GROUP_SIZE-1; i>=0; i--){ //i is the type to be on
+		Set_LED(i, rainbow_colors[color_seq][0], rainbow_colors[color_seq][1], rainbow_colors[color_seq][2]);
+		WS2812_Send();
+		HAL_Delay(60);}
+	}
+
+	color_seq = (color_seq+1)%7;
+
+
+};
 
 volatile float brightness=1;
 volatile int bright2dark=1;
@@ -297,7 +332,7 @@ void DisplayCalibration(){
   LCD_DrawString(110, 60, "X"); 
   LCD_DrawString(110, 110, "Y"); 
   LCD_DrawString(110, 170, "pen");
-  LCD_DrawString(110, 220, "rotate: pen UP");
+  LCD_DrawString(110, 220, "rotate");
 
 //x
   LCD_Clear ( 40,  40,  30, 30, RED);
@@ -1002,14 +1037,16 @@ int main(void)
   Set_Brightness(brightness);
   WS2812_Send();
 
-  rainbow_refresh_right();
+  //rainbow_refresh_right();
+  led_cascade_effect(1);
   HAL_Delay (2000);
-  rainbow_refresh_right();
+  //rainbow_refresh_right();
+  led_cascade_effect(-1);
    HAL_Delay (2000);
   
 
 	LCD_Clear (50, 80, 140, 70, RED);
-	LCD_DrawString(68, 100, "TOUCHPAD DEMO");
+	LCD_DrawString(68, 100, "Drawing machine demo");
 	HAL_Delay(2000);
 
 	while( ! XPT2046_Touch_Calibrate () );
@@ -1082,28 +1119,28 @@ int main(void)
         //x -ve
          if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>40 && strDisplayCoordinate.y<70){
         	 //x -ve is pressed
-           LCD_DrawString(110, 250, "x -ve");
+           LCD_DrawString(110, 250, "x -ve     ");
            move_x(-10);
            
          }
         //x +ve
          else if (strDisplayCoordinate.x>150 && strDisplayCoordinate.x<180 && strDisplayCoordinate.y>40 && strDisplayCoordinate.y<70){
         	//x +ve is pressed
-          LCD_DrawString(110, 250, "x +ve");
+          LCD_DrawString(110, 250, "x +ve     ");
           move_x(10);
           
          }
         //y -ve
          else if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>90 && strDisplayCoordinate.y<120){
         	//y -ve is pressed
-           LCD_DrawString(110, 250, "y -ve");
+           LCD_DrawString(110, 250, "y -ve     ");
           move_y(-2);
          
          }
         //y +ve
          else if (strDisplayCoordinate.x>150 && strDisplayCoordinate.x<180 && strDisplayCoordinate.y>90 && strDisplayCoordinate.y<120){
          //y +ve
-         LCD_DrawString(110, 250, "y +ve");
+         LCD_DrawString(110, 250, "y +ve     ");
           move_y(2);
          
          }
@@ -1116,7 +1153,7 @@ int main(void)
         //pen up
          else if (strDisplayCoordinate.x>150 && strDisplayCoordinate.x<180 && strDisplayCoordinate.y>150 && strDisplayCoordinate.y<180){
             //penup
-            LCD_DrawString(110, 250, "pen up");
+            LCD_DrawString(110, 250, "pen up     ");
             penUp(&row);
             
          }
@@ -1124,7 +1161,7 @@ int main(void)
          else if (strDisplayCoordinate.x>40 && strDisplayCoordinate.x<70 && strDisplayCoordinate.y>200 && strDisplayCoordinate.y<230){
             //maybe force pen up 
             //rotate
-            LCD_DrawString(110, 250, "rotate");
+            LCD_DrawString(110, 250, "rotate     ");
             rotate_90(&a_motor);
             
          }

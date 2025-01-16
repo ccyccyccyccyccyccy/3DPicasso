@@ -1,4 +1,4 @@
-//pesudo code
+//pseudo code
 
 /*
 void draw(short arr[FRAME_HEIGHT][FRAME_WIDTH]){//1: draw. 0: don't draw
@@ -143,12 +143,16 @@ int find_next_end(char arr[FRAME_HEIGHT][FRAME_WIDTH], int row, int start_index,
 struct point {
   int x; //correspond to FRAME_WIDTH
   int y; //correspond to FRAME_HEIGHT
-float a; //angle
+  int a; //angle
 };
 
-void penDown(){;}; 
-void penUp(){;}; 
+void penDown(){
+    printf("pen down\n");};
+void penUp(){
+    printf("pen up\n")
+    ;}; 
 void drawLine(struct point newPos, struct point* actuatorPos, int* row){
+    printf("from [%d, %d] to [%d, %d]\n", actuatorPos->y, actuatorPos->x, newPos.y, newPos.x); 
     actuatorPos->x= newPos.x; 
     actuatorPos->y= newPos.y; 
      };  
@@ -191,7 +195,6 @@ void draw_plane(char arr[FRAME_HEIGHT][FRAME_WIDTH], struct point* actualPos){//
 
             penDown(); //start drawing
             newPos.x = end_pos; 
-            printf("from [%d, %d] to [%d, %d]\n", actualPos->y, actualPos->x, newPos.y, newPos.x); 
             drawLine(newPos, actualPos, &row);
             penUp(); 
 
@@ -212,8 +215,7 @@ void draw_plane(char arr[FRAME_HEIGHT][FRAME_WIDTH], struct point* actualPos){//
             
            
         scan_dir *= -1; 
-        //move to next line //FIXME: if next line is empty, no need to change dir
-        //FIXME: changing line issue
+        //move to next line 
 
     }
 }

@@ -216,8 +216,6 @@ void EXTI0_IRQHandler(void)
 
 		}
 
-    //the below line HAL_GPIO_EXTI_IRQHandler(K1_Pin); can be kept
-    //but the above code MUST be kept, otherwise K1 won't work
 		
   /* USER CODE END EXTI0_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(K1_Pin);
@@ -253,8 +251,7 @@ void EXTI4_IRQHandler(void)
 
 
   }
-  //ucXPT2046_TouchFlag = 0; //don't add this or the home page won't work. no effect on canva page anyway.
-  //LCD_DrawString(68, 100, "  ");
+  
   /* USER CODE END EXTI4_IRQn 1 */
 }
 

@@ -177,40 +177,6 @@ void Reset_LED (void)
 	}
 }
 
-uint16_t effStep = 0;
-
-uint8_t rainbow_effect_right() {
-    // Strip ID: 0 - Effect: Rainbow - LEDS: 8
-    // Steps: 14 - Delay: 30
-    // Colors: 3 (255.0.0, 0.255.0, 0.0.255)
-    // Options: rainbowlen=8, toLeft=false,
-//  if(millis() - strip_0.effStart < 30 * (strip_0.effStep)) return 0x00;
-  float factor1, factor2;
-  uint16_t ind;
-  for(uint16_t j=0;j<8;j++) {
-    ind = 14 - (int16_t)(effStep - j * 1.75) % 14;
-    switch((int)((ind % 14) / 4.666666666666667)) {
-      case 0: factor1 = 1.0 - ((float)(ind % 14 - 0 * 4.666666666666667) / 4.666666666666667);
-              factor2 = (float)((int)(ind - 0) % 14) / 4.666666666666667;
-              Set_LED(j, 255 * factor1 + 0 * factor2, 0 * factor1 + 255 * factor2, 0 * factor1 + 0 * factor2);
-              WS2812_Send();
-              break;
-      case 1: factor1 = 1.0 - ((float)(ind % 14 - 1 * 4.666666666666667) / 4.666666666666667);
-              factor2 = (float)((int)(ind - 4.666666666666667) % 14) / 4.666666666666667;
-              Set_LED(j, 0 * factor1 + 0 * factor2, 255 * factor1 + 0 * factor2, 0 * factor1 + 255 * factor2);
-              WS2812_Send();
-              break;
-      case 2: factor1 = 1.0 - ((float)(ind % 14 - 2 * 4.666666666666667) / 4.666666666666667);
-              factor2 = (float)((int)(ind - 9.333333333333334) % 14) / 4.666666666666667;
-              Set_LED(j, 0 * factor1 + 255 * factor2, 0 * factor1 + 0 * factor2, 255 * factor1 + 0 * factor2);
-              WS2812_Send();
-              break;
-    }
-  }
-  if(effStep >= 14) {effStep = 0; return 0x03; }
-  else effStep++;
-  return 0x01;
-}
 volatile int color_seq=0;
 
 uint8_t rainbow_colors[7][3] = {
@@ -250,14 +216,6 @@ void led_cascade_effect(int dir){
 volatile float brightness=1;
 volatile int bright2dark=1;
 volatile int breathing=0;
-
-void rainbow_refresh_right(){
-
-	for (int i=0; i<30; i++){
-	  	  rainbow_effect_right();
-	  	  HAL_Delay (30);
-	    }
-}
 
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -480,7 +438,7 @@ struct StepperMotor{
   GPIO_TypeDef *gpio_port_in4;
   uint16_t gpio_pin_in4;
   enum MotorType motor_type;
-  int last_step_num; //only for a_motor
+  int last_step_num; //only for a_motor and x_motor
 };
 
 void delay (uint16_t us)
@@ -491,7 +449,7 @@ void delay (uint16_t us)
 
 /* use like delay */
 
-void stepper_set_rpm (int rpm, int stepsperrev)  // Set rpm--> max 13, min 1,,,  went to 14 rev/min
+void stepper_set_rpm (int rpm, int stepsperrev)  
 {
 	delay(60000000/stepsperrev/rpm);
   //microseconds     rev        minute
@@ -676,21 +634,7 @@ void stepper_step_angle (float angle, int direction, int rpm, struct StepperMoto
 
   if (m->motor_type == M_42BYG){
       for (int seq=0; seq<numberofsequences; seq++){
-    // if (direction == 0){  // for clockwise
-    //   for (int step=0; step<4; step++){
-    //     stepper_42byg_full_drive(step, m);
-    //   stepper_set_rpm(rpm, 200);
-    //   }
-
-    // }
-
-    // else if (direction == 1){  // for anti-clockwise
-    //   for (int step=3; step>=0; step--)
-    //   {
-    //     stepper_42byg_full_drive(step, m);
-    //   stepper_set_rpm(rpm, 200);
-    //   }
-    // }
+   
 
     if (direction == 0){  // for clockwise
       for (int step=0; step<8; step++){
@@ -737,7 +681,6 @@ void stepper_step_angle (float angle, int direction, int rpm, struct StepperMoto
 struct StepperMotor m28byj={GPIOB, GPIO_PIN_12, GPIOB, GPIO_PIN_13, GPIOB, GPIO_PIN_14, GPIOB, GPIO_PIN_15, M_28BYJ};
 struct StepperMotor x_motor={GPIOA, GPIO_PIN_5, GPIOA, GPIO_PIN_2, GPIOA, GPIO_PIN_3, GPIOA, GPIO_PIN_4, M_42BYG, 0};
 struct StepperMotor a_motor={GPIOD, GPIO_PIN_2, GPIOC, GPIO_PIN_12, GPIOC, GPIO_PIN_6, GPIOC, GPIO_PIN_7, M_42BYG, -1};
-//FIXME: make the last_step_num more consistent.
 //rn, last_step_num is actually next step (the step is used first, then updated) in the x axis
 //really last step for a axis (update first, then use the step )
 
@@ -769,7 +712,7 @@ void move_x(int dist){ //in terms of mm
 		dir= 0; //to the left //away from motor
 		for (int i=0; i<abs(dist); i++){
 			//x_pos_one_mm(&x_motor, rpm);
-			x_neg_one_mm(&x_motor, rpm);
+			x_neg_one_mm(&x_motor, rpm); //wrt pen position, not the block position
 		}
 
 
@@ -783,9 +726,7 @@ void move_x(int dist){ //in terms of mm
 
 	}
 
-//	for (int i=0; i<abs(dist); i++){
-//		stepper_step_angle(45, dir,rpm, &x_motor);
-//	}
+
 }
 
 void move_y(int dist){ //in terms of mm
@@ -809,25 +750,17 @@ void rotate_90(struct StepperMotor* m){
 		stepper_42byg_half_drive(m->last_step_num, m);
 		stepper_set_rpm(70, 400);
 	}
-  //rainbow_refresh_right();
 }
 
 
 
 void penUp(int* row){
-  //char buffer[20];
-  //sprintf(buffer, "Pen up");
-  //printline(buffer, row);
-  //TIM2->CCR3= 500;
+
   TIM2->CCR3= 1000;
 }
 
 void penDown(int* row){
-  //char buffer[20];
-  //sprintf(buffer, "Pen down");
-  //printline(buffer, row);
 
-    //TIM2->CCR3= 1000;
     TIM2->CCR3= 500;
 }
 
@@ -977,8 +910,7 @@ void draw_plane(char arr[FRAME_HEIGHT][FRAME_WIDTH], struct point* actualPos, in
             
            
         scan_dir *= -1; 
-        //move to next line //FIXME: if next line is empty, no need to change dir
-        //FIXME: changing line issue
+        //move to next line 
 
     }
 }
@@ -1031,16 +963,14 @@ int main(void)
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
   
     Reset_LED();
-//Reset_LED();
-  //rainbow_refresh_right();
+
     breathing=1;
   Set_Brightness(brightness);
   WS2812_Send();
 
-  //rainbow_refresh_right();
   led_cascade_effect(1);
   HAL_Delay (2000);
-  //rainbow_refresh_right();
+ 
   led_cascade_effect(-1);
    HAL_Delay (2000);
   
@@ -1071,31 +1001,31 @@ int main(void)
       
 	
     if ( ucXPT2046_TouchFlag == 1 ){
-      //Check_touchkey();
+      
        strType_XPT2046_Coordinate strDisplayCoordinate;
        if ( XPT2046_Get_TouchedPoint ( & strDisplayCoordinate, & strXPT2046_TouchPara ) ){
         //check which button is pressed
 
         //canva
          if (strDisplayCoordinate.x>90 && strDisplayCoordinate.x<150 && strDisplayCoordinate.y>230 && strDisplayCoordinate.y<290){
-        	 LCD_Clear (0,  0,  240, 320, WHITE); //don't know why need this
+        	 LCD_Clear (0,  0,  240, 320, WHITE); 
         	 current_page = CANVA;
            DisplayCanva();
 		      drawable =1; //goes to exti 4 irq
          }
         //calibrate 
          else if (strDisplayCoordinate.x>90 && strDisplayCoordinate.x<150 && strDisplayCoordinate.y>150 && strDisplayCoordinate.y<210){
-        	 LCD_Clear (0,  0,  240, 320, WHITE); //don't know why need this
+        	 LCD_Clear (0,  0,  240, 320, WHITE); 
         	 current_page = CALIBRATION;
           DisplayCalibration();
          }
         //machine draw
          else if (strDisplayCoordinate.x>90 && strDisplayCoordinate.x<150 && strDisplayCoordinate.y>70 && strDisplayCoordinate.y<130){
-        	 LCD_Clear (0,  0,  240, 320, WHITE); //don't know why need this
+        	 LCD_Clear (0,  0,  240, 320, WHITE); 
         	 current_page = MACHINE_DRAW;
           DisplayMachineDraw();
           machine_draw_flag=1;
-          //TODO: go home fn //reset the position
+          
          }
        }
       ucXPT2046_TouchFlag = 0;
@@ -1196,29 +1126,7 @@ int main(void)
       check_homeKey(&current_page); 
     }
 	  
-//    if ( ucXPT2046_TouchFlag == 1 )
-//    {
-//			Check_touchkey();
-////	strType_XPT2046_Coordinate strDisplayCoordinate;
-////	if ( XPT2046_Get_TouchedPoint ( & strDisplayCoordinate, & strXPT2046_TouchPara ) ){
-////		LCD_DrawDot(strDisplayCoordinate.x, strDisplayCoordinate.y, BLACK);
-////	}
-//      ucXPT2046_TouchFlag = 0;
-//    }
 
-//	  
-//	  
-//		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1, GPIO_PIN_SET);
-//		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
-//		  HAL_Delay(500);
-//		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_5, GPIO_PIN_SET);
-//		  HAL_Delay(500);
-		  //consolidatePattern();
-//		  LCD_Clear (50, 80, 140, 70, RED);
-//		  HAL_Delay(500);
-//		  LCD_Clear (50, 80, 140, 70, WHITE);
-//
-//	  }
 
 
     
